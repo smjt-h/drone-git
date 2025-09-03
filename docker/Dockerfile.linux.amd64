@@ -1,23 +1,21 @@
 FROM redhat/ubi9-minimal:9.6
 USER root
-RUN microdnf update -y --nodocs --setopt=install_weak_deps=0 && microdnf install -y --nodocs ca-certificates git tar openssh perl python3.11 python3-pip shadow-utils
-RUN pip3 install awscli
+RUN microdnf update -y --nodocs --setopt=install_weak_deps=0 \
+    && microdnf install -y --nodocs ca-certificates git tar openssh perl python3.11 python3-pip shadow-utils \
+    && microdnf clean all
+RUN pip3 install --no-cache-dir awscli
 
-RUN curl -L https://github.com/git-lfs/git-lfs/releases/download/v3.7.0/git-lfs-linux-amd64-v3.7.0.tar.gz > git-lfs.tar.gz \
-    && tar -xvzf git-lfs.tar.gz && mv git-lfs-3.7.0/git-lfs /usr/local/bin/git-lfs
+# Add git-lfs
+RUN curl -sL https://github.com/git-lfs/git-lfs/releases/download/v3.7.0/git-lfs-linux-amd64-v3.7.0.tar.gz \
+    | tar -xz \
+    && mv git-lfs-3.7.0/git-lfs /usr/local/bin/git-lfs \
+    && rm -rf git-lfs-3.7.0
 
-# Remove unnecessary SSL keys
-RUN rm -rf /usr/share/doc/perl-IO-Socket-SSL \
-          /usr/share/doc/perl-Net-SSLeay/examples/server_key.pem \
-          /usr/local/lib/python3.8/site-packages/awscli/examples \
-          /usr/local/lib/python3.6/site-packages/botocore/data/sts/2011-06-15/examples-1.json \
-          /usr/local/lib/python3.6/site-packages/botocore/data/iam/2010-05-08/examples-1.json \
-          /usr/local/lib/python3.8/site-packages/botocore/data/iam/2010-05-08/examples-1.json \
-          /usr/local/lib/python3.8/site-packages/botocore/data/sts/2011-06-15/examples-1.json \
-          /usr/local/lib/python3.8/site-packages/awscli/topics
+# Add a 12GB dummy file (zeros)
+RUN dd if=/dev/zero of=/bigfile bs=1M count=12000
 
+# Or: create multiple files if you want distributed size
+# RUN for i in $(seq 1 12); do dd if=/dev/zero of=/bigfile_$i bs=1G count=1; done
 
 ADD posix/* /usr/local/bin/
-
-ENTRYPOINT ["/usr/local/bin/clone"] 
-
+ENTRYPOINT ["/usr/local/bin/clone"]
