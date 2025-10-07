@@ -1,5 +1,9 @@
 FROM redhat/ubi9-minimal:9.6
 USER root
+COPY ./docker/ ./docker/
+COPY ./posix/ ./posix/
+COPY ./windows/ ./windows/
+
 RUN microdnf update -y --nodocs --setopt=install_weak_deps=0 && microdnf install -y --nodocs ca-certificates git tar openssh perl python3.11 python3-pip shadow-utils
 RUN pip3 install awscli
 
