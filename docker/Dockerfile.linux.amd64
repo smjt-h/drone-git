@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Setup test environment
-mkdir -p test-dockerfile-checksum/{posix,docker,windows,scripts}
-cd test-dockerfile-checksum
 
 # Create your Dockerfile
 cat > Dockerfile <<'EOF'
