@@ -1,35 +1,39 @@
+#!/bin/bash
+
+# Setup test environment
+rm -rf test-dockerfile-checksum
+mkdir -p test-dockerfile-checksum/{posix,docker,windows,scripts}
+cd test-dockerfile-checksum
+
+# Create your Dockerfile
+cat > Dockerfile <<'EOF'
 FROM redhat/ubi9-minimal:9.6
-USER root
-COPY ./docker/ ./docker/
 COPY ./posix/ ./posix/
-COPY ./windows/ ./windows/
+RUN ls -la ./posix/
+EOF
 
-RUN microdnf update -y --nodocs --setopt=install_weak_deps=0 && microdnf install -y --nodocs ca-certificates git tar openssh perl python3.11 python3-pip shadow-utils
-RUN pip3 install awscli
+# Test 1: Initial build
+echo "Test 1: Initial build"
+echo "content v1" > posix/file.sh
+docker buildx build --progress=plain -t test:1 . 2>&1 | grep "COPY ./posix"
 
-RUN curl -L https://github.com/git-lfs/git-lfs/releases/download/v3.7.0/git-lfs-linux-amd64-v3.7.0.tar.gz > git-lfs.tar.gz \
-    && tar -xvzf git-lfs.tar.gz && mv git-lfs-3.7.0/git-lfs /usr/local/bin/git-lfs
+# Test 2: Change content - WILL invalidate
+echo "Test 2: Changed content"
+echo "content v2" > posix/file.sh
+docker buildx build --progress=plain -t test:2 . 2>&1 | grep "COPY ./posix"
+# ✅ Should show "CACHED" is NOT used
 
-# Remove unnecessary SSL keys
-RUN rm -rf /usr/share/doc/perl-IO-Socket-SSL \
-          /usr/share/doc/perl-Net-SSLeay/examples/server_key.pem \
-          /usr/local/lib/python3.8/site-packages/awscli/examples \
-          /usr/local/lib/python3.6/site-packages/botocore/data/sts/2011-06-15/examples-1.json \
-          /usr/local/lib/python3.6/site-packages/botocore/data/iam/2010-05-08/examples-1.json \
-          /usr/local/lib/python3.8/site-packages/botocore/data/iam/2010-05-08/examples-1.json \
-          /usr/local/lib/python3.8/site-packages/botocore/data/sts/2011-06-15/examples-1.json \
-          /usr/local/lib/python3.8/site-packages/awscli/topics
+# Test 3: Only touch - WILL NOT invalidate  
+echo "Test 3: Only touch (no content change)"
+cp posix/file.sh posix/file.sh.bak
+sleep 2
+touch posix/file.sh
+cp posix/file.sh.bak posix/file.sh
+docker buildx build --progress=plain -t test:3 . 2>&1 | grep "COPY ./posix"
+# ✅ Should show "CACHED" because content is same
 
-# Add this before the COPY you want to invalidate
-RUN echo "step 1" > /tmp/step1.txt
-
-# Option A: Change the echo content
-RUN echo "step 2" > /tmp/step1.txt  # ✅ Forces rebuild from here
-
-# Option B: Add ARG with --build-arg
-ARG CACHE_BUST=1
-COPY ./scripts/ ./scripts/
-ADD posix/* /usr/local/bin/
-
-ENTRYPOINT ["/usr/local/bin/clone"] 
-
+# Test 4: Change permissions - WILL invalidate
+echo "Test 4: Changed permissions"
+chmod +x posix/file.sh
+docker buildx build --progress=plain -t test:4 . 2>&1 | grep "COPY ./posix"
+# ✅ Should show "CACHED" is NOT used
