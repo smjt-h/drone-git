@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Setup test environment
-rm -rf test-dockerfile-checksum
 mkdir -p test-dockerfile-checksum/{posix,docker,windows,scripts}
 cd test-dockerfile-checksum
 
